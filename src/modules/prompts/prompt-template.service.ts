@@ -1,21 +1,6 @@
-import { env } from "../../config/env.js";
 import { prisma } from "../../db/prisma.js";
+import { OpenRouterService } from "../providers/openrouter/openrouter.service.js";
 import type { CompatPromptItem, CompatPromptsResponse } from "../../types/compat.js";
-
-type FetchLike = (
-  input: string,
-  init: {
-    method: string;
-    headers: Record<string, string>;
-    body: string;
-  }
-) => Promise<{
-  ok: boolean;
-  status: number;
-  json: () => Promise<unknown>;
-}>;
-
-const fetchLike = (globalThis as unknown as { fetch: FetchLike }).fetch;
 
 function toModelName(modelKey: string): string {
   switch (modelKey) {
@@ -38,6 +23,8 @@ function toModelName(modelKey: string): string {
 }
 
 export class PromptTemplateService {
+  private readonly openRouterService = new OpenRouterService();
+
   async list(): Promise<CompatPromptsResponse> {
     const templates = await prisma.promptTemplate.findMany({
       where: { active: true },
@@ -71,25 +58,24 @@ export class PromptTemplateService {
   async generateSystemPrompt(
     userPrompt: string
   ): Promise<{ prompt_name: string; system_prompt: string }> {
-    const response = await fetchLike(`${env.OPENROUTER_BASE_URL}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${env.OPENROUTER_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: "openai/gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are an expert system prompt engineer. Given the user's description, return ONLY the production-ready system prompt text. Do not include explanations, titles, markdown headers, or surrounding commentary."
-          },
-          { role: "user", content: userPrompt }
-        ],
-        max_tokens: 1024,
-        temperature: 0.4
-      })
+    const trimmedPrompt = userPrompt.trim();
+    if (!trimmedPrompt) {
+      throw new Error("Prompt generation requires a non-empty user_prompt");
+    }
+
+    const response = await this.openRouterService.createChatCompletion({
+      model: "openai/gpt-4.1-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You generate production-ready system prompts for desktop AI assistants. Return only the final system prompt text. Do not add explanations, markdown, headings, or quotation marks."
+        },
+        { role: "user", content: trimmedPrompt }
+      ],
+      stream: false,
+      max_tokens: 1024,
+      temperature: 0.2
     });
 
     if (!response.ok) {
@@ -97,9 +83,27 @@ export class PromptTemplateService {
     }
 
     const data = (await response.json()) as {
-      choices: Array<{ message: { content: string } }>;
+      choices?: Array<{
+        message?: {
+          content?: string | Array<{ type?: string; text?: string }>;
+        };
+      }>;
     };
-    const systemPrompt = data.choices[0]?.message?.content?.trim() ?? "";
+
+    const rawContent = data.choices?.[0]?.message?.content;
+    const systemPrompt =
+      typeof rawContent === "string"
+        ? rawContent.trim()
+        : Array.isArray(rawContent)
+          ? rawContent
+              .map((part) => (part && typeof part.text === "string" ? part.text : ""))
+              .join("\n")
+              .trim()
+          : "";
+
+    if (!systemPrompt) {
+      throw new Error("Prompt generation returned empty output");
+    }
 
     return {
       prompt_name: "Generated Prompt",

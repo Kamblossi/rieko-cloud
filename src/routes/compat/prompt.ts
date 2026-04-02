@@ -6,7 +6,7 @@ const router = Router();
 const promptTemplateService = new PromptTemplateService();
 
 const bodySchema = z.object({
-  user_prompt: z.string().min(1)
+  user_prompt: z.string().trim().min(1)
 });
 
 router.post("/prompt", async (req, res, next) => {
