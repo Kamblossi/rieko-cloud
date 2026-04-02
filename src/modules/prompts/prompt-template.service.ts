@@ -17,6 +17,26 @@ type FetchLike = (
 
 const fetchLike = (globalThis as unknown as { fetch: FetchLike }).fetch;
 
+function toModelName(modelKey: string): string {
+  switch (modelKey) {
+    case "auto":
+      return "Auto";
+    case "fast":
+      return "Fast";
+    case "premium":
+      return "Premium";
+    case "vision":
+      return "Vision";
+    case "code":
+      return "Code";
+    case "audio":
+    case "audio-auto":
+      return "Audio";
+    default:
+      return modelKey;
+  }
+}
+
 export class PromptTemplateService {
   async list(): Promise<CompatPromptsResponse> {
     const templates = await prisma.promptTemplate.findMany({
@@ -25,33 +45,25 @@ export class PromptTemplateService {
       select: { title: true, prompt: true, defaultModelKey: true, updatedAt: true }
     });
 
-      const prompts: CompatPromptItem[] = (
-      templates as Array<{ title: string; prompt: string; defaultModelKey: string; updatedAt: Date }>
-      ).map((t) => ({
+    const prompts: CompatPromptItem[] = (
+      templates as Array<{
+        title: string;
+        prompt: string;
+        defaultModelKey: string;
+        updatedAt: Date;
+      }>
+    ).map((t) => ({
       title: t.title,
       prompt: t.prompt,
       modelId: t.defaultModelKey || "auto",
-      modelName: t.defaultModelKey === "auto" ? "Auto" : t.defaultModelKey
+      modelName: toModelName(t.defaultModelKey || "auto")
     }));
 
-    const lastUpdated =
-      templates.length > 0 ? templates[0].updatedAt.toISOString() : "2026-04-02T00:00:00.000Z";
-
-    const promptsWithFallback =
-      prompts.length > 0
-        ? prompts
-        : [
-            {
-              title: "Interview Copilot",
-              prompt: "You are an interview assistant...",
-              modelId: "auto",
-              modelName: "Auto"
-            }
-          ];
+    const lastUpdated = templates.length > 0 ? templates[0].updatedAt.toISOString() : null;
 
     return {
-      prompts: promptsWithFallback,
-      total: promptsWithFallback.length,
+      prompts,
+      total: prompts.length,
       last_updated: lastUpdated
     };
   }

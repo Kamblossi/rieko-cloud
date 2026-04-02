@@ -4,9 +4,13 @@ import { ModelCatalogService } from "../../modules/models/model-catalog.service.
 const router = Router();
 const modelCatalogService = new ModelCatalogService();
 
-router.post("/models", (_req, res) => {
-  const models = modelCatalogService.getCompatModels();
-  res.json({ models });
+router.post("/models", async (_req, res, next) => {
+  try {
+    const models = await modelCatalogService.getCompatModels();
+    res.json({ models });
+  } catch (error) {
+    next(error);
+  }
 });
 
 export { router as compatModelsRouter };
