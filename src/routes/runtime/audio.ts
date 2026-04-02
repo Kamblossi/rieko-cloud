@@ -1,23 +1,68 @@
 import { Router } from "express";
+import multer from "multer";
 import { z } from "zod";
-import { AudioRuntimeService } from "../../modules/runtime/audio-runtime.service.js";
+import { cloudSessionAuth } from "../../middleware/cloud-session-auth.js";
+import {
+  AudioRuntimeService,
+  AudioRuntimeUpstreamError,
+} from "../../modules/runtime/audio-runtime.service.js";
 
 const router = Router();
+const upload = multer({ storage: multer.memoryStorage() });
 const audioRuntimeService = new AudioRuntimeService();
 
-const bodySchema = z.object({
-  audioBase64: z.string().min(1),
-  model: z.string().optional()
-});
+const bodySchema = z
+  .object({
+    model: z.string().min(1),
+  })
+  .passthrough();
 
-router.post("/audio", async (req, res, next) => {
-  try {
-    const input = bodySchema.parse(req.body);
-    const result = await audioRuntimeService.transcribe(input);
-    res.json(result);
-  } catch (error) {
-    next(error);
-  }
-});
+router.post(
+  "/audio",
+  cloudSessionAuth,
+  upload.single("file"),
+  async (req, res, next) => {
+    try {
+      const parsed = bodySchema.parse(req.body);
+
+      if (!req.file) {
+        res.status(400).json({
+          error: "Bad Request",
+          message: "Missing audio file",
+          requestId: req.requestId,
+        });
+        return;
+      }
+
+      console.info("[runtime/audio] request", {
+        requestId: req.requestId,
+        model: parsed.model,
+        mimeType: req.file.mimetype || "audio/wav",
+        fileSize: req.file.size,
+        sessionId: req.auth?.sessionId,
+      });
+
+      const result = await audioRuntimeService.transcribe({
+        model: parsed.model,
+        mimeType: req.file.mimetype || "audio/wav",
+        originalName: req.file.originalname,
+        buffer: req.file.buffer,
+      });
+
+      res.status(200).json({ text: result.text });
+    } catch (error) {
+      if (error instanceof AudioRuntimeUpstreamError) {
+        res.status(error.statusCode).json({
+          error: "Audio Upstream Error",
+          message: error.message,
+          requestId: req.requestId,
+        });
+        return;
+      }
+
+      next(error);
+    }
+  },
+);
 
 export { router as runtimeAudioRouter };

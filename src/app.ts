@@ -3,7 +3,6 @@ import express from "express";
 import helmet from "helmet";
 import pinoHttp from "pino-http";
 import { env } from "./config/env.js";
-import { cloudSessionAuth } from "./middleware/cloud-session-auth.js";
 import { desktopCompatAuth } from "./middleware/desktop-compat-auth.js";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
@@ -53,7 +52,7 @@ app.use("/api", desktopCompatAuth, compatActivityRouter);
 app.use("/internal", desktopCompatAuth, internalSessionsRouter);
 
 app.use("/runtime", runtimeChatRouter);
-app.use("/runtime", cloudSessionAuth, runtimeAudioRouter);
+app.use("/runtime", runtimeAudioRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
