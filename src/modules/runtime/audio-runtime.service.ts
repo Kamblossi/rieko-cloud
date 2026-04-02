@@ -1,9 +1,7 @@
 import { OpenRouterService } from "../providers/openrouter/openrouter.service.js";
-
-const AUDIO_MODEL_MAP: Record<string, string> = {
-  "audio-auto": "google/gemini-2.5-flash",
-  auto: "google/gemini-2.5-flash",
-};
+import { ModelPolicyService } from "../models/model-policy.service.js";
+import { RoutingService } from "../models/routing.service.js";
+import type { CapabilityContext } from "../billing/billing-capabilities.service.js";
 
 type SupportedAudioFormat = "wav" | "mp3" | "m4a" | "flac" | "webm" | "aac" | "ogg";
 
@@ -107,15 +105,30 @@ function extractTextFromContent(content: unknown): string {
 
 export class AudioRuntimeService {
   private readonly openRouterService = new OpenRouterService();
+  private readonly modelPolicyService = new ModelPolicyService();
+  private readonly routingService = new RoutingService();
 
-  async transcribe(input: AudioTranscriptionInput): Promise<{ text: string }> {
+  async transcribe(
+    input: AudioTranscriptionInput,
+    capabilityContext?: CapabilityContext,
+  ): Promise<{ text: string }> {
     const requestedModel = input.model?.trim() || "audio-auto";
-    const upstreamModel = AUDIO_MODEL_MAP[requestedModel] ?? AUDIO_MODEL_MAP["audio-auto"];
+    const modelForPolicy = requestedModel === "audio-auto" ? "audio" : requestedModel;
+
+    const allowed = await this.modelPolicyService.validateModelForModality({
+      requestedModelKey: modelForPolicy,
+      modality: "audio",
+      capabilityContext,
+    });
+    const route = await this.routingService.resolveAudioRoute({
+      requestedModelKey: allowed.modelKey,
+    });
+
     const audioFormat = normalizeAudioFormat(input.mimeType, input.originalName);
     const audioBase64 = input.buffer.toString("base64");
 
     const response = await this.openRouterService.createAudioTranscription({
-      model: upstreamModel,
+      model: route.upstreamModel,
       audioBase64,
       audioFormat,
     });

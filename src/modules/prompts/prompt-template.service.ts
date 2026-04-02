@@ -1,5 +1,7 @@
 import { prisma } from "../../db/prisma.js";
 import { OpenRouterService } from "../providers/openrouter/openrouter.service.js";
+import { ModelPolicyService } from "../models/model-policy.service.js";
+import { RoutingService } from "../models/routing.service.js";
 import type { CompatPromptItem, CompatPromptsResponse } from "../../types/compat.js";
 
 function toModelName(modelKey: string): string {
@@ -24,6 +26,8 @@ function toModelName(modelKey: string): string {
 
 export class PromptTemplateService {
   private readonly openRouterService = new OpenRouterService();
+  private readonly modelPolicyService = new ModelPolicyService();
+  private readonly routingService = new RoutingService();
 
   async list(): Promise<CompatPromptsResponse> {
     const templates = await prisma.promptTemplate.findMany({
@@ -63,8 +67,14 @@ export class PromptTemplateService {
       throw new Error("Prompt generation requires a non-empty user_prompt");
     }
 
+    const allowed = await this.modelPolicyService.validateModelForModality({
+      requestedModelKey: "auto",
+      modality: "prompt",
+    });
+    const route = await this.routingService.resolvePromptRoute();
+
     const response = await this.openRouterService.createChatCompletion({
-      model: "openai/gpt-4.1-mini",
+      model: route.upstreamModel,
       messages: [
         {
           role: "system",
@@ -74,8 +84,13 @@ export class PromptTemplateService {
         { role: "user", content: trimmedPrompt }
       ],
       stream: false,
-      max_tokens: 1024,
-      temperature: 0.2
+      max_tokens: route.maxTokens ?? 1024,
+      temperature: route.temperature ?? 0.2,
+      metadata: {
+        rieko_routing_profile_id: route.routingProfileId,
+        rieko_task_type: route.taskType,
+        rieko_model_key: allowed.modelKey,
+      }
     });
 
     if (!response.ok) {

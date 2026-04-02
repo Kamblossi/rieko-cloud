@@ -2,6 +2,8 @@ import { Router } from "express";
 import { z } from "zod";
 import { cloudSessionAuth } from "../../middleware/cloud-session-auth.js";
 import { ChatRuntimeService } from "../../modules/runtime/chat-runtime.service.js";
+import { ModelPolicyError } from "../../modules/models/model-policy.service.js";
+import { RoutingResolutionError } from "../../modules/models/routing.service.js";
 
 const router = Router();
 const chatRuntimeService = new ChatRuntimeService();
@@ -35,7 +37,10 @@ router.post("/chat", cloudSessionAuth, async (req, res, next) => {
       sessionId: req.auth?.sessionId,
     });
 
-    const upstream = await chatRuntimeService.createChatCompletion(parsed);
+    const upstream = await chatRuntimeService.createChatCompletion(parsed, {
+      isAdmin: req.auth?.isAdmin,
+      planCode: req.auth?.planCode,
+    });
     const contentType = upstream.headers.get("content-type") ?? "application/json";
 
     console.info("[runtime/chat] upstream", {
@@ -73,6 +78,16 @@ router.post("/chat", cloudSessionAuth, async (req, res, next) => {
     const text = await upstream.text();
     res.status(200).type(contentType).send(text);
   } catch (error) {
+    if (error instanceof ModelPolicyError || error instanceof RoutingResolutionError) {
+      res.status(error.statusCode).json({
+        error: error.name,
+        reason: error.reason,
+        message: error.message,
+        requestId: req.requestId,
+      });
+      return;
+    }
+
     next(error);
   }
 });

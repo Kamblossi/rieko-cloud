@@ -75,6 +75,11 @@ export async function cloudSessionAuth(
       userId: session.licenseKey,
       scope: "cloud-session",
       sessionId: session.id,
+      licenseKey: session.licenseKey,
+      machineId: session.machineId,
+      instanceId: session.instanceId,
+      isAdmin: session.isAdmin,
+      planCode: session.planCode,
     };
 
     next();

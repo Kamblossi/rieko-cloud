@@ -98,6 +98,69 @@ const PROMPT_SEEDS = [
   },
 ] as const;
 
+const ROUTING_PROFILE_SEEDS = [
+  {
+    taskType: "CHAT_FAST",
+    modality: "text",
+    latencyPreference: "low",
+    preferredModelKey: "fast",
+    fallbackJson: { modelKeys: ["premium"] },
+    maxTokens: 4096,
+    temperature: 0.3,
+    active: true,
+  },
+  {
+    taskType: "CHAT_DEEP",
+    modality: "text",
+    latencyPreference: "balanced",
+    preferredModelKey: "premium",
+    fallbackJson: { modelKeys: ["fast"] },
+    maxTokens: 8192,
+    temperature: 0.3,
+    active: true,
+  },
+  {
+    taskType: "CODE_ASSIST",
+    modality: "text",
+    latencyPreference: "balanced",
+    preferredModelKey: "code",
+    fallbackJson: { modelKeys: ["premium", "fast"] },
+    maxTokens: 8192,
+    temperature: 0.2,
+    active: true,
+  },
+  {
+    taskType: "VISION_SCREEN",
+    modality: "vision",
+    latencyPreference: "balanced",
+    preferredModelKey: "vision",
+    fallbackJson: { modelKeys: ["premium", "fast"] },
+    maxTokens: 4096,
+    temperature: 0.2,
+    active: true,
+  },
+  {
+    taskType: "TRANSCRIBE_CLEANUP",
+    modality: "audio",
+    latencyPreference: "low",
+    preferredModelKey: "audio",
+    fallbackJson: { modelKeys: ["audio-auto"] },
+    maxTokens: 4096,
+    temperature: 0,
+    active: true,
+  },
+  {
+    taskType: "PROMPT_REWRITE",
+    modality: "text",
+    latencyPreference: "balanced",
+    preferredModelKey: "fast",
+    fallbackJson: { modelKeys: ["premium"] },
+    maxTokens: 1024,
+    temperature: 0.2,
+    active: true,
+  },
+] as const;
+
 async function main(): Promise<void> {
   for (const model of MODEL_SEEDS) {
     await prisma.riekoModel.upsert({
@@ -147,6 +210,45 @@ async function main(): Promise<void> {
         prompt: prompt.prompt,
         defaultModelKey: prompt.defaultModelKey,
         active: true,
+      },
+    });
+  }
+
+  for (const profile of ROUTING_PROFILE_SEEDS) {
+    const existingProfile = await prisma.routingProfile.findFirst({
+      where: {
+        taskType: profile.taskType,
+        modality: profile.modality,
+      },
+      select: { id: true },
+      orderBy: { id: "asc" },
+    });
+
+    if (existingProfile) {
+      await prisma.routingProfile.update({
+        where: { id: existingProfile.id },
+        data: {
+          latencyPreference: profile.latencyPreference,
+          preferredModelKey: profile.preferredModelKey,
+          fallbackJson: profile.fallbackJson,
+          maxTokens: profile.maxTokens,
+          temperature: profile.temperature,
+          active: profile.active,
+        },
+      });
+      continue;
+    }
+
+    await prisma.routingProfile.create({
+      data: {
+        taskType: profile.taskType,
+        modality: profile.modality,
+        latencyPreference: profile.latencyPreference,
+        preferredModelKey: profile.preferredModelKey,
+        fallbackJson: profile.fallbackJson,
+        maxTokens: profile.maxTokens,
+        temperature: profile.temperature,
+        active: profile.active,
       },
     });
   }

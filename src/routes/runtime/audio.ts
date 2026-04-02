@@ -6,6 +6,8 @@ import {
   AudioRuntimeService,
   AudioRuntimeUpstreamError,
 } from "../../modules/runtime/audio-runtime.service.js";
+import { ModelPolicyError } from "../../modules/models/model-policy.service.js";
+import { RoutingResolutionError } from "../../modules/models/routing.service.js";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -47,10 +49,23 @@ router.post(
         mimeType: req.file.mimetype || "audio/wav",
         originalName: req.file.originalname,
         buffer: req.file.buffer,
+      }, {
+        isAdmin: req.auth?.isAdmin,
+        planCode: req.auth?.planCode,
       });
 
       res.status(200).json({ text: result.text });
     } catch (error) {
+      if (error instanceof ModelPolicyError || error instanceof RoutingResolutionError) {
+        res.status(error.statusCode).json({
+          error: error.name,
+          reason: error.reason,
+          message: error.message,
+          requestId: req.requestId,
+        });
+        return;
+      }
+
       if (error instanceof AudioRuntimeUpstreamError) {
         res.status(error.statusCode).json({
           error: "Audio Upstream Error",
