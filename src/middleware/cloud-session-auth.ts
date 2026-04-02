@@ -1,47 +1,84 @@
 import type { NextFunction, Request, Response } from "express";
 import { jwtVerify } from "jose";
 import { env } from "../config/env.js";
+import { prisma } from "../db/prisma.js";
 
 const secretKey = new TextEncoder().encode(env.CLOUD_SESSION_JWT_SECRET);
 
-export async function cloudSessionAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
+function unauthorized(req: Request, res: Response, message: string): void {
+  res.status(401).json({
+    error: "Unauthorized",
+    message,
+    requestId: req.requestId,
+  });
+}
+
+export async function cloudSessionAuth(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   const authHeader = req.header("authorization");
-  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  const token = authHeader?.startsWith("Bearer ")
+    ? authHeader.slice(7)
+    : null;
 
   if (!token) {
-    res.status(401).json({
-      error: "Unauthorized",
-      message: "Missing cloud session token",
-      requestId: req.requestId
-    });
+    unauthorized(req, res, "Missing cloud session token");
     return;
   }
 
   try {
     const { payload } = await jwtVerify(token, secretKey, {
       issuer: "rieko-cloud",
-      audience: "rieko-runtime"
+      audience: "rieko-runtime",
     });
 
-    const userId = typeof payload.sub === "string" ? payload.sub : undefined;
     const sessionId = typeof payload.sid === "string" ? payload.sid : undefined;
+    const subject = typeof payload.sub === "string" ? payload.sub : undefined;
 
-    if (!userId || !sessionId) {
-      throw new Error("Invalid token payload");
+    if (!sessionId) {
+      throw new Error("Missing session id in token");
+    }
+
+    const session = await prisma.cloudSession.findUnique({
+      where: { id: sessionId },
+      select: {
+        id: true,
+        licenseKey: true,
+        machineId: true,
+        instanceId: true,
+        isAdmin: true,
+        planCode: true,
+        expiresAt: true,
+        revokedAt: true,
+      },
+    });
+
+    if (!session) {
+      throw new Error("Cloud session no longer exists");
+    }
+
+    if (session.revokedAt) {
+      throw new Error("Cloud session has been revoked");
+    }
+
+    if (session.expiresAt.getTime() <= Date.now()) {
+      throw new Error("Cloud session has expired");
+    }
+
+    if (subject && subject !== session.licenseKey) {
+      throw new Error("Token subject mismatch");
     }
 
     req.auth = {
-      userId,
+      userId: session.licenseKey,
       scope: "cloud-session",
-      sessionId
+      sessionId: session.id,
     };
 
     next();
   } catch {
-    res.status(401).json({
-      error: "Unauthorized",
-      message: "Invalid or expired cloud session token",
-      requestId: req.requestId
-    });
+    unauthorized(req, res, "Invalid or expired cloud session token");
   }
 }

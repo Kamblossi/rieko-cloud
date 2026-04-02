@@ -1,0 +1,40 @@
+name: Deploy Rieko Cloud
+
+on:
+  push:
+    branches: [ master, main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to Lightsail via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.PORT }}
+          script: |
+            # 1. Ensure the folder exists
+            mkdir -p ~/rieko-cloud
+            cd ~/rieko-cloud
+            
+            # 2. Pull latest code (Initializing if folder was empty)
+            if [ -d ".git" ]; then
+              git pull origin master
+            else
+              git clone https://github.com/${{ github.repository }}.git .
+            fi
+
+            # 3. Install and Build
+            npm install
+            # If you are using TypeScript, ensure you have a 'build' script in package.json
+            npm run build 
+
+            # 4. Restart the service
+            pm2 restart rieko-cloud || pm2 start dist/app.js --name "rieko-cloud"
+            pm2 save

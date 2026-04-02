@@ -6,16 +6,29 @@ const router = Router();
 const activityService = new ActivityService();
 
 const activitySchema = z.object({
-  userId: z.string().min(1),
-  eventType: z.string().min(1),
-  payload: z.record(z.unknown())
-});
+  license: z.string().default(""),
+  instance: z.string().default(""),
+  machine_id: z.string().default(""),
+  app_version: z.string().default(""),
+  ai_model: z.string().default("")
+}).passthrough();
 
 router.post("/activity", async (req, res, next) => {
   try {
     const event = activitySchema.parse(req.body);
     await activityService.track(event);
     res.status(202).json({ accepted: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/activity", async (req, res, next) => {
+  try {
+    const licenseKey =
+      typeof req.headers["license_key"] === "string" ? req.headers["license_key"] : "";
+    const summary = await activityService.getSummary(licenseKey);
+    res.json(summary);
   } catch (error) {
     next(error);
   }

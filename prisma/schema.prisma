@@ -4,41 +4,72 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model CloudSession {
-  id        String   @id @default(cuid())
-  userId    String
-  source    String
-  issuedAt  DateTime @default(now())
-  expiresAt DateTime
+  id         String    @id @default(cuid())
+  licenseKey String
+  machineId  String
+  instanceId String
+  isAdmin    Boolean   @default(false)
+  planCode   String?
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
 
-  @@index([userId, expiresAt])
+  @@index([licenseKey, machineId, createdAt])
 }
 
-model ActivityEvent {
-  id        String   @id @default(cuid())
-  userId    String
-  eventType String
-  payload   Json
-  createdAt DateTime @default(now())
+model RiekoModel {
+  id                 String   @id @default(cuid())
+  displayName        String
+  providerLabel      String
+  routingKey         String   @unique
+  modality           String
+  isAvailable        Boolean  @default(true)
+  sortOrder          Int      @default(0)
+  isManualSelectable Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  @@index([userId, createdAt])
+  @@index([isAvailable, sortOrder])
 }
 
 model PromptTemplate {
-  id        String   @id @default(cuid())
-  key       String   @unique
-  title     String
-  body      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String   @id @default(cuid())
+  title           String
+  prompt          String
+  defaultModelKey String
+  active          Boolean  @default(true)
+  updatedAt       DateTime @updatedAt
+
+  @@index([active, updatedAt])
 }
 
-model ResponseConfig {
-  id          String   @id @default(cuid())
-  userId      String   @unique
-  temperature Float    @default(0.7)
-  maxTokens   Int      @default(1024)
-  updatedAt   DateTime @updatedAt
+model UsageEvent {
+  id         String   @id @default(cuid())
+  licenseKey String
+  machineId  String
+  instanceId String
+  modelKey   String
+  usageJson  Json
+  createdAt  DateTime @default(now())
+
+  @@index([licenseKey, createdAt])
+}
+
+model RoutingProfile {
+  id                String   @id @default(cuid())
+  taskType          String
+  modality          String
+  latencyPreference String?
+  preferredModelKey String
+  fallbackJson      Json?
+  maxTokens         Int?
+  temperature       Float?
+  active            Boolean  @default(true)
+
+  @@index([taskType, modality, active])
 }

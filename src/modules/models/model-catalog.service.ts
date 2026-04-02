@@ -4,10 +4,13 @@ export class ModelCatalogService {
   getCompatModels(): CompatModelItem[] {
     return [
       {
-        id: "openrouter/openai/gpt-4o-mini",
-        name: "GPT-4o Mini",
-        provider: "openrouter",
-        contextWindow: 128000
+        provider: "Rieko Cloud",
+        name: "Auto",
+        id: "auto",
+        model: "auto",
+        description: "Let Rieko Cloud choose the best model.",
+        modality: "text",
+        isAvailable: true
       }
     ];
   }

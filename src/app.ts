@@ -44,11 +44,11 @@ app.get("/health", (_req, res) => {
   });
 });
 
-app.use("/compat", desktopCompatAuth, compatModelsRouter);
-app.use("/compat", desktopCompatAuth, compatPromptsRouter);
-app.use("/compat", desktopCompatAuth, compatPromptRouter);
-app.use("/compat", desktopCompatAuth, compatResponseRouter);
-app.use("/compat", desktopCompatAuth, compatActivityRouter);
+app.use("/api", desktopCompatAuth, compatModelsRouter);
+app.use("/api", desktopCompatAuth, compatPromptsRouter);
+app.use("/api", desktopCompatAuth, compatPromptRouter);
+app.use("/api", desktopCompatAuth, compatResponseRouter);
+app.use("/api", desktopCompatAuth, compatActivityRouter);
 
 app.use("/internal", desktopCompatAuth, internalSessionsRouter);
 

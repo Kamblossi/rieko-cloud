@@ -1,35 +1,50 @@
 import { Router } from "express";
-import { z } from "zod";
-import { ResponseConfigService } from "../../modules/response/response-config.service.js";
+import {
+  CloudAccessDeniedError,
+  ResponseConfigService,
+} from "../../modules/response/response-config.service.js";
 
 const router = Router();
 const responseConfigService = new ResponseConfigService();
 
-const responseSchema = z.object({
-  userId: z.string().min(1),
-  temperature: z.number().min(0).max(2),
-  maxTokens: z.number().int().positive().max(32000)
-});
-
 router.get("/response", async (req, res, next) => {
   try {
-    const userId = typeof req.query.userId === "string" ? req.query.userId : "desktop-compat";
-    const config = await responseConfigService.getForUser(userId);
-    res.json({ config });
-  } catch (error) {
-    next(error);
-  }
-});
+    const licenseKey =
+      typeof req.headers["license_key"] === "string"
+        ? req.headers["license_key"]
+        : "";
+    const machineId =
+      typeof req.headers["machine_id"] === "string"
+        ? req.headers["machine_id"]
+        : "";
+    const instanceId =
+      typeof req.headers["instance"] === "string"
+        ? req.headers["instance"]
+        : "";
+    const model =
+      typeof req.headers["model"] === "string"
+        ? req.headers["model"]
+        : undefined;
 
-router.post("/response", async (req, res, next) => {
-  try {
-    const input = responseSchema.parse(req.body);
-    const config = await responseConfigService.updateForUser(input.userId, {
-      temperature: input.temperature,
-      maxTokens: input.maxTokens
+    const payload = await responseConfigService.buildCompatResponse({
+      licenseKey,
+      machineId,
+      instanceId,
+      model,
     });
-    res.json({ config });
+
+    res.json(payload);
   } catch (error) {
+    if (error instanceof CloudAccessDeniedError) {
+      res.status(error.statusCode).json({
+        error: "Cloud Access Denied",
+        message: error.message,
+        reason: error.reason ?? null,
+        requestId: req.requestId,
+      });
+      return;
+    }
+
     next(error);
   }
 });

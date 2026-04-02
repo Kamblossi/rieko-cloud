@@ -8,6 +8,11 @@ declare module "express-serve-static-core" {
       userId: string;
       scope: "desktop-compat" | "cloud-session";
       sessionId?: string;
+      licenseKey?: string;
+      machineId?: string;
+      instanceId?: string;
+      isAdmin?: boolean;
+      planCode?: string | null;
     };
   }
 }

@@ -4,10 +4,10 @@ import { PromptTemplateService } from "../../modules/prompts/prompt-template.ser
 const router = Router();
 const promptTemplateService = new PromptTemplateService();
 
-router.get("/prompts", async (_req, res, next) => {
+router.post("/prompts", async (_req, res, next) => {
   try {
-    const prompts = await promptTemplateService.list();
-    res.json({ prompts });
+    const result = await promptTemplateService.list();
+    res.json(result);
   } catch (error) {
     next(error);
   }

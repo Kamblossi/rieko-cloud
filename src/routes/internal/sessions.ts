@@ -6,16 +6,22 @@ const router = Router();
 const cloudSessionService = new CloudSessionService();
 
 const bodySchema = z.object({
-  userId: z.string().min(1),
-  source: z.string().min(1).default("desktop")
+  licenseKey: z.string().min(1),
+  machineId: z.string().min(1),
+  instanceId: z.string().min(1),
+  isAdmin: z.boolean().optional(),
+  planCode: z.string().optional()
 });
 
 router.post("/sessions", async (req, res, next) => {
   try {
     const body = bodySchema.parse(req.body);
     const session = await cloudSessionService.issueSession({
-      userId: body.userId,
-      source: body.source
+      licenseKey: body.licenseKey,
+      machineId: body.machineId,
+      instanceId: body.instanceId,
+      isAdmin: body.isAdmin,
+      planCode: body.planCode
     });
 
     res.status(201).json(session);

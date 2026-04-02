@@ -6,16 +6,14 @@ const router = Router();
 const promptTemplateService = new PromptTemplateService();
 
 const bodySchema = z.object({
-  key: z.string().min(1),
-  title: z.string().min(1),
-  body: z.string().min(1)
+  user_prompt: z.string().min(1)
 });
 
 router.post("/prompt", async (req, res, next) => {
   try {
-    const body = bodySchema.parse(req.body);
-    const prompt = await promptTemplateService.upsert(body.key, body.title, body.body);
-    res.json({ prompt });
+    const { user_prompt } = bodySchema.parse(req.body);
+    const result = await promptTemplateService.generateSystemPrompt(user_prompt);
+    res.json(result);
   } catch (error) {
     next(error);
   }

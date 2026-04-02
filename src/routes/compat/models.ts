@@ -4,7 +4,7 @@ import { ModelCatalogService } from "../../modules/models/model-catalog.service.
 const router = Router();
 const modelCatalogService = new ModelCatalogService();
 
-router.get("/models", (_req, res) => {
+router.post("/models", (_req, res) => {
   const models = modelCatalogService.getCompatModels();
   res.json({ models });
 });
