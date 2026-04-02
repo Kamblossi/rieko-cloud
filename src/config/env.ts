@@ -16,6 +16,8 @@ const envSchema = z.object({
   CLOUD_SESSION_TTL_SECONDS: z.coerce.number().int().positive().default(300),
   OPENROUTER_API_KEY: z.string().min(1),
   OPENROUTER_BASE_URL: z.string().url().default("https://openrouter.ai/api/v1"),
+  OPENROUTER_HTTP_REFERER: z.string().url().optional(),
+  OPENROUTER_APP_TITLE: z.string().optional(),
   PORTKEY_API_KEY: z.string().optional(),
   PORTKEY_BASE_URL: z.string().url().default("https://api.portkey.ai/v1"),
   PORTKEY_DEFAULT_CONFIG_ID: z.string().optional(),

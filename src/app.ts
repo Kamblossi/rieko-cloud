@@ -52,7 +52,7 @@ app.use("/api", desktopCompatAuth, compatActivityRouter);
 
 app.use("/internal", desktopCompatAuth, internalSessionsRouter);
 
-app.use("/runtime", cloudSessionAuth, runtimeChatRouter);
+app.use("/runtime", runtimeChatRouter);
 app.use("/runtime", cloudSessionAuth, runtimeAudioRouter);
 
 app.use(notFoundHandler);
