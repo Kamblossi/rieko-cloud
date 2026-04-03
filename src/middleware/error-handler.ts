@@ -20,10 +20,27 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
     return;
   }
 
-  const message = err instanceof Error ? err.message : "Unexpected internal error";
+  if (err instanceof Error) {
+    const statusCode =
+      typeof (err as unknown as { statusCode?: unknown }).statusCode === "number"
+        ? (err as unknown as { statusCode: number }).statusCode
+        : 500;
+    const reason =
+      typeof (err as unknown as { reason?: unknown }).reason === "string"
+        ? (err as unknown as { reason: string }).reason
+        : undefined;
+
+    res.status(statusCode).json({
+      error: reason ?? (statusCode >= 500 ? "Internal Server Error" : err.name),
+      message: err.message,
+      requestId: req.requestId
+    });
+    return;
+  }
+
   res.status(500).json({
     error: "Internal Server Error",
-    message,
+    message: "Unexpected internal error",
     requestId: req.requestId
   });
 }

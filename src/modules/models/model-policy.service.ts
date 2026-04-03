@@ -27,6 +27,17 @@ export class ModelPolicyService {
     capabilityContext?: CapabilityContext;
   }): Promise<{ modelKey: string; isAuto: boolean }> {
     const modelKey = (input.requestedModelKey || "auto").trim() || "auto";
+    const resolvedCapabilities = this.billingCapabilitiesService.resolveCapabilities(
+      input.capabilityContext ?? {},
+    );
+
+    if (!resolvedCapabilities.cloudEnabled) {
+      throw new ModelPolicyError(
+        403,
+        "CLOUD_NOT_ENABLED_FOR_PLAN",
+        "This plan does not include Rieko Cloud access.",
+      );
+    }
 
     if (modelKey === "auto") {
       this.assertCapabilityAllowed(modelKey, input.capabilityContext);

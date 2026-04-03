@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from "express";
 import { jwtVerify } from "jose";
 import { env } from "../config/env.js";
 import { prisma } from "../db/prisma.js";
+import type { RuntimeCapabilityPayload } from "../modules/billing/billing-capabilities.service.js";
 
 const secretKey = new TextEncoder().encode(env.CLOUD_SESSION_JWT_SECRET);
 
@@ -50,6 +51,8 @@ export async function cloudSessionAuth(
         instanceId: true,
         isAdmin: true,
         planCode: true,
+        tier: true,
+        capabilitiesJson: true,
         expiresAt: true,
         revokedAt: true,
       },
@@ -80,6 +83,8 @@ export async function cloudSessionAuth(
       instanceId: session.instanceId,
       isAdmin: session.isAdmin,
       planCode: session.planCode,
+      tier: session.tier,
+      capabilities: (session.capabilitiesJson ?? null) as RuntimeCapabilityPayload | null,
     };
 
     next();

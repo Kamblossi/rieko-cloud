@@ -3,6 +3,7 @@ import { OpenRouterService } from "../providers/openrouter/openrouter.service.js
 import { ModelPolicyService } from "../models/model-policy.service.js";
 import { RoutingService } from "../models/routing.service.js";
 import type { CompatPromptItem, CompatPromptsResponse } from "../../types/compat.js";
+import type { CapabilityContext } from "../billing/billing-capabilities.service.js";
 
 function toModelName(modelKey: string): string {
   switch (modelKey) {
@@ -60,8 +61,9 @@ export class PromptTemplateService {
   }
 
   async generateSystemPrompt(
-    userPrompt: string
-  ): Promise<{ prompt_name: string; system_prompt: string }> {
+    userPrompt: string,
+    capabilityContext?: CapabilityContext,
+  ): Promise<{ prompt_name: string; system_prompt: string; model_key: string }> {
     const trimmedPrompt = userPrompt.trim();
     if (!trimmedPrompt) {
       throw new Error("Prompt generation requires a non-empty user_prompt");
@@ -70,6 +72,7 @@ export class PromptTemplateService {
     const allowed = await this.modelPolicyService.validateModelForModality({
       requestedModelKey: "auto",
       modality: "prompt",
+      capabilityContext,
     });
     const route = await this.routingService.resolvePromptRoute();
 
@@ -122,7 +125,8 @@ export class PromptTemplateService {
 
     return {
       prompt_name: "Generated Prompt",
-      system_prompt: systemPrompt
+      system_prompt: systemPrompt,
+      model_key: allowed.modelKey,
     };
   }
 }

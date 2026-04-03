@@ -1,11 +1,25 @@
 import { z } from "zod";
 import { env } from "../../config/env.js";
+import type { RuntimeCapabilityPayload } from "./billing-capabilities.service.js";
+
+const billingCapabilitiesSchema = z.object({
+  cloud_enabled: z.boolean(),
+  dev_space_enabled: z.boolean(),
+  byok_enabled: z.boolean(),
+  allowed_model_keys: z.array(z.string()),
+  monthly_generation_limit: z.number().int().nullable(),
+  trial_request_limit: z.number().int().nullable(),
+  device_limit: z.number().int(),
+});
 
 const billingValidateResponseSchema = z.object({
   is_active: z.boolean(),
   last_validated_at: z.string().nullable(),
   is_dev_license: z.boolean(),
   reason: z.string().optional(),
+  plan_code: z.string().nullable().optional(),
+  tier: z.string().nullable().optional(),
+  capabilities: billingCapabilitiesSchema.nullable().optional(),
 });
 
 export type BillingValidateLicenseInput = {
@@ -20,6 +34,9 @@ export type BillingValidateLicenseResult = {
   lastValidatedAt: string | null;
   isDevLicense: boolean;
   reason?: string;
+  planCode: string | null;
+  tier: string | null;
+  capabilities: RuntimeCapabilityPayload | null;
 };
 
 async function readJsonSafely(response: Response): Promise<unknown> {
@@ -49,8 +66,6 @@ export class BillingClient {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        // billing currently requires a non-empty license_key in the route schema.
-        // This placeholder lets admin-allowlisted devices still pass validation.
         license_key: input.licenseKey?.trim() || "ADMIN-CHECK",
         machine_id: input.machineId,
         instance_name: input.instanceId,
@@ -80,6 +95,9 @@ export class BillingClient {
       lastValidatedAt: parsed.last_validated_at,
       isDevLicense: parsed.is_dev_license,
       reason: parsed.reason,
+      planCode: parsed.plan_code ?? null,
+      tier: parsed.tier ?? null,
+      capabilities: parsed.capabilities ?? null,
     };
   }
 }

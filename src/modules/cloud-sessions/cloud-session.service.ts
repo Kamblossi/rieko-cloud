@@ -1,6 +1,8 @@
 import { SignJWT } from "jose";
+import { Prisma } from "@prisma/client";
 import { prisma } from "../../db/prisma.js";
 import { env } from "../../config/env.js";
+import type { RuntimeCapabilityPayload } from "../billing/billing-capabilities.service.js";
 
 const secretKey = new TextEncoder().encode(env.CLOUD_SESSION_JWT_SECRET);
 
@@ -11,6 +13,8 @@ export class CloudSessionService {
     instanceId: string;
     isAdmin?: boolean;
     planCode?: string | null;
+    tier?: string | null;
+    capabilities?: RuntimeCapabilityPayload | null;
   }): Promise<{ token: string; expiresAt: string; sessionId: string }> {
     const expiresAtDate = new Date(Date.now() + env.CLOUD_SESSION_TTL_SECONDS * 1000);
 
@@ -21,6 +25,10 @@ export class CloudSessionService {
         instanceId: input.instanceId,
         isAdmin: input.isAdmin ?? false,
         planCode: input.planCode ?? null,
+        tier: input.tier ?? null,
+        capabilitiesJson: input.capabilities
+          ? (input.capabilities as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
         expiresAt: expiresAtDate
       },
       select: { id: true, expiresAt: true }

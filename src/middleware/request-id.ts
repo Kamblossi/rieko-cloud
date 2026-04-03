@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Request, Response, NextFunction } from "express";
+import type { RuntimeCapabilityPayload } from "../modules/billing/billing-capabilities.service.js";
 
 declare module "express-serve-static-core" {
   interface Request {
@@ -13,6 +14,8 @@ declare module "express-serve-static-core" {
       instanceId?: string;
       isAdmin?: boolean;
       planCode?: string | null;
+      tier?: string | null;
+      capabilities?: RuntimeCapabilityPayload | null;
     };
   }
 }

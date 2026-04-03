@@ -3,33 +3,24 @@ import {
   CloudAccessDeniedError,
   ResponseConfigService,
 } from "../../modules/response/response-config.service.js";
+import { resolveCompatIdentity } from "../../utils/compat-identity.js";
 
 const router = Router();
 const responseConfigService = new ResponseConfigService();
 
 router.get("/response", async (req, res, next) => {
   try {
-    const licenseKey =
-      typeof req.headers["license_key"] === "string"
-        ? req.headers["license_key"]
-        : "";
-    const machineId =
-      typeof req.headers["machine_id"] === "string"
-        ? req.headers["machine_id"]
-        : "";
-    const instanceId =
-      typeof req.headers["instance"] === "string"
-        ? req.headers["instance"]
-        : "";
+    const identity = resolveCompatIdentity(req.headers);
     const model =
       typeof req.headers["model"] === "string"
         ? req.headers["model"]
         : undefined;
 
     const payload = await responseConfigService.buildCompatResponse({
-      licenseKey,
-      machineId,
-      instanceId,
+      licenseKey: identity.licenseKey,
+      machineId: identity.machineId,
+      instanceId: identity.instanceId,
+      appVersion: identity.appVersion,
       model,
     });
 

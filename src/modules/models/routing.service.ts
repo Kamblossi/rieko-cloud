@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+type JsonValue = unknown;
 import { prisma } from "../../db/prisma.js";
 
 const UPSTREAM_MODEL_MAP: Record<string, string> = {
@@ -63,7 +63,7 @@ export class RoutingService {
     id: string;
     taskType: string;
     preferredModelKey: string;
-    fallbackJson: Prisma.JsonValue | null;
+    fallbackJson: JsonValue | null;
     maxTokens: number | null;
     temperature: number | null;
   }> {
@@ -100,7 +100,7 @@ export class RoutingService {
       id: string;
       taskType: string;
       preferredModelKey: string;
-      fallbackJson: Prisma.JsonValue | null;
+      fallbackJson: JsonValue | null;
       maxTokens: number | null;
       temperature: number | null;
     },
@@ -150,7 +150,7 @@ function resolveChatTaskType(requestedModelKey: string, hasVisionInput: boolean)
   return "CHAT_FAST";
 }
 
-function extractFallbackModelKeys(fallbackJson: Prisma.JsonValue | null): string[] {
+function extractFallbackModelKeys(fallbackJson: JsonValue | null): string[] {
   if (!fallbackJson) {
     return [];
   }

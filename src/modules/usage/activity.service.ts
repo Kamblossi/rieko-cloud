@@ -40,7 +40,43 @@ export class ActivityService {
         machineId: identity.machineId,
         instanceId: identity.instanceId,
         modelKey: resolvedModelKey,
+        eventType: input.event_type,
+        consumesQuota: false,
         usageJson,
+      },
+    });
+  }
+
+  async recordQuotaConsumption(input: ActivityIdentity & {
+    modelKey: string;
+    eventType: string;
+    usage?: Record<string, unknown>;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    const usageJson = {
+      event_type: input.eventType,
+      usage: isObject(input.usage) ? input.usage : {},
+      metadata: isObject(input.metadata) ? input.metadata : {},
+    } as Prisma.InputJsonValue;
+
+    await prisma.usageEvent.create({
+      data: {
+        licenseKey: input.licenseKey,
+        machineId: input.machineId,
+        instanceId: input.instanceId,
+        modelKey: input.modelKey,
+        eventType: input.eventType,
+        consumesQuota: true,
+        usageJson,
+      },
+    });
+  }
+
+  async countQuotaConsumptions(identity: { licenseKey: string }): Promise<number> {
+    return prisma.usageEvent.count({
+      where: {
+        licenseKey: identity.licenseKey,
+        consumesQuota: true,
       },
     });
   }
@@ -77,7 +113,7 @@ export class ActivityService {
     return {
       total_events: count,
       last_activity_at: latest ? latest.createdAt.toISOString() : null,
-      recent_models: recentModelRows.map((row) => row.modelKey),
+      recent_models: recentModelRows.map((row: { modelKey: string }) => row.modelKey),
     };
   }
 }
