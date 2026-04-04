@@ -1,5 +1,4 @@
 import { SignJWT } from "jose";
-import { Prisma } from "@prisma/client";
 import { prisma } from "../../db/prisma.js";
 import { env } from "../../config/env.js";
 import type { RuntimeCapabilityPayload } from "../billing/billing-capabilities.service.js";
@@ -26,9 +25,7 @@ export class CloudSessionService {
         isAdmin: input.isAdmin ?? false,
         planCode: input.planCode ?? null,
         tier: input.tier ?? null,
-        capabilitiesJson: input.capabilities
-          ? (input.capabilities as Prisma.InputJsonValue)
-          : Prisma.JsonNull,
+        capabilitiesJson: input.capabilities ?? null,
         expiresAt: expiresAtDate
       },
       select: { id: true, expiresAt: true }

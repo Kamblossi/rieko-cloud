@@ -1,5 +1,4 @@
 import { prisma } from "../../db/prisma.js";
-import type { Prisma } from "@prisma/client";
 
 type ActivityIdentity = {
   licenseKey: string;
@@ -32,7 +31,7 @@ export class ActivityService {
       usage: isObject(input.usage) ? input.usage : {},
       metadata: isObject(input.metadata) ? input.metadata : {},
       raw: input,
-    } as Prisma.InputJsonValue;
+    };
 
     await prisma.usageEvent.create({
       data: {
@@ -57,7 +56,7 @@ export class ActivityService {
       event_type: input.eventType,
       usage: isObject(input.usage) ? input.usage : {},
       metadata: isObject(input.metadata) ? input.metadata : {},
-    } as Prisma.InputJsonValue;
+    };
 
     await prisma.usageEvent.create({
       data: {
