@@ -2,20 +2,20 @@ import type { CompatModelItem } from "../../types/compat.js";
 import { prisma } from "../../db/prisma.js";
 
 export class ModelCatalogService {
-  async getCompatModels(allowedModelKeys?: string[]): Promise<CompatModelItem[]> {
-    if (Array.isArray(allowedModelKeys) && allowedModelKeys.length === 0) {
+  async getCompatModels(allowedModelKeys: string[]): Promise<CompatModelItem[]> {
+    if (!Array.isArray(allowedModelKeys)) {
+      throw new Error("allowedModelKeys is required");
+    }
+
+    if (allowedModelKeys.length === 0) {
       return [];
     }
 
-    const where = {
-      isAvailable: true,
-      ...(Array.isArray(allowedModelKeys)
-        ? { routingKey: { in: allowedModelKeys } }
-        : {}),
-    };
-
     const rows = await prisma.riekoModel.findMany({
-      where,
+      where: {
+        isAvailable: true,
+        routingKey: { in: allowedModelKeys },
+      },
       orderBy: [
         { sortOrder: "asc" },
         { displayName: "asc" },
@@ -29,13 +29,7 @@ export class ModelCatalogService {
       },
     });
 
-    return rows.map((row: {
-      displayName: string;
-      providerLabel: string;
-      routingKey: string;
-      modality: string;
-      isAvailable: boolean;
-    }) => ({
+    return rows.map((row) => ({
       provider: row.providerLabel,
       name: row.displayName,
       id: row.routingKey,
