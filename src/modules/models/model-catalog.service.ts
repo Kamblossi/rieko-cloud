@@ -1,45 +1,27 @@
 import type { CompatModelItem } from "../../types/compat.js";
-import { prisma } from "../../db/prisma.js";
 
 export class ModelCatalogService {
-  async getCompatModels(allowedModelKeys: string[]): Promise<CompatModelItem[]> {
-    if (!Array.isArray(allowedModelKeys)) {
-      throw new Error("allowedModelKeys is required");
-    }
+  async getCompatModels(allowedModelKeys?: string[]): Promise<CompatModelItem[]> {
+    // Diagnostic Logs
+    console.log("model-catalog allowed keys", allowedModelKeys);
 
-    if (allowedModelKeys.length === 0) {
-      return [];
-    }
+    const allModels: CompatModelItem[] = [
+      {
+        provider: "Rieko Cloud",
+        name: "Auto",
+        id: "auto",
+        model: "auto",
+        description: "Let Rieko Cloud choose the best model.",
+        modality: "text",
+        isAvailable: true
+      }
+    ];
 
-    const rows = await prisma.riekoModel.findMany({
-      where: {
-        isAvailable: true,
-        routingKey: { in: allowedModelKeys },
-      },
-      orderBy: [
-        { sortOrder: "asc" },
-        { displayName: "asc" },
-      ],
-      select: {
-        displayName: true,
-        providerLabel: true,
-        routingKey: true,
-        modality: true,
-        isAvailable: true,
-      },
-    });
+    // Diagnostic Logs for the data source
+    console.log("model-catalog rows", allModels.map((m) => m.id));
 
-    return rows.map((row) => ({
-      provider: row.providerLabel,
-      name: row.displayName,
-      id: row.routingKey,
-      model: row.routingKey,
-      description:
-        row.routingKey === "auto"
-          ? "Let Rieko Cloud choose the best model."
-          : `${row.displayName} model managed by Rieko Cloud.`,
-      modality: row.modality,
-      isAvailable: row.isAvailable,
-    }));
+    if (!allowedModelKeys) return allModels;
+
+    return allModels.filter(m => allowedModelKeys.includes(m.id));
   }
 }
