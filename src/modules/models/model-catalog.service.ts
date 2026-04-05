@@ -1,27 +1,36 @@
+import { prisma } from "../../db/prisma.js";
 import type { CompatModelItem } from "../../types/compat.js";
 
 export class ModelCatalogService {
   async getCompatModels(allowedModelKeys?: string[]): Promise<CompatModelItem[]> {
-    // Diagnostic Logs
-    console.log("model-catalog allowed keys", allowedModelKeys);
-
-    const allModels: CompatModelItem[] = [
-      {
-        provider: "Rieko Cloud",
-        name: "Auto",
-        id: "auto",
-        model: "auto",
-        description: "Let Rieko Cloud choose the best model.",
-        modality: "text",
-        isAvailable: true
+    // 1. Fetch all available and selectable models from Supabase
+    const models = await prisma.riekoModel.findMany({
+      where: {
+        isAvailable: true,
+        isManualSelectable: true
+      },
+      orderBy: {
+        sortOrder: 'asc'
       }
-    ];
+    });
 
-    // Diagnostic Logs for the data source
-    console.log("model-catalog rows", allModels.map((m) => m.id));
+    // 2. Map the DB rows to the legacy desktop format
+    const allModels: CompatModelItem[] = models.map(m => ({
+      provider: m.providerLabel,
+      name: m.displayName,
+      id: m.routingKey,
+      model: m.routingKey,
+      description: "Managed by Rieko Cloud",
+      modality: m.modality,
+      isAvailable: m.isAvailable
+    }));
 
-    if (!allowedModelKeys) return allModels;
+    // 3. Security: If no keys allowed by billing, return empty list
+    if (!allowedModelKeys || allowedModelKeys.length === 0) {
+      return [];
+    }
 
+    // 4. Filter the DB results based on the billing service's allow-list
     return allModels.filter(m => allowedModelKeys.includes(m.id));
   }
 }
