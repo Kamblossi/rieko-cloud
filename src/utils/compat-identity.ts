@@ -1,12 +1,14 @@
-export type CompatIdentity = {
+import type { IncomingHttpHeaders } from "node:http";
+
+export interface CompatIdentity {
   licenseKey: string;
   machineId: string;
   instanceId: string;
   appVersion?: string;
-};
+}
 
 export function resolveCompatIdentity(
-  headers: Record<string, unknown>,
+  headers: IncomingHttpHeaders,
   fallback?: {
     licenseKey?: string;
     machineId?: string;
@@ -14,24 +16,16 @@ export function resolveCompatIdentity(
     appVersion?: string;
   },
 ): CompatIdentity {
-  const licenseKey =
-    typeof headers["license_key"] === "string"
-      ? headers["license_key"].trim()
-      : (fallback?.licenseKey ?? "").trim();
-  const machineId =
-    typeof headers["machine_id"] === "string"
-      ? headers["machine_id"].trim()
-      : (fallback?.machineId ?? "").trim();
-  const instanceId =
-    typeof headers["instance"] === "string"
-      ? headers["instance"].trim()
-      : typeof headers["instance_name"] === "string"
-        ? headers["instance_name"].trim()
-        : (fallback?.instanceId ?? "").trim();
-  const appVersion =
-    typeof headers["app_version"] === "string"
-      ? headers["app_version"].trim()
-      : fallback?.appVersion?.trim();
+  // Support both underscores (legacy/local) and hyphens (Nginx/Standard)
+  const licenseKey = (headers["license-key"] || headers["license_key"] || fallback?.licenseKey || "") as string;
+  const machineId = (headers["machine-id"] || headers["machine_id"] || fallback?.machineId || "") as string;
+  const instanceId = (headers["instance"] || headers["instance_id"] || headers["instance_name"] || fallback?.instanceId || "") as string;
+  const appVersion = (headers["app-version"] || headers["app_version"] || fallback?.appVersion || "") as string;
 
-  return { licenseKey, machineId, instanceId, appVersion };
+  return {
+    licenseKey: licenseKey.trim(),
+    machineId: machineId.trim(),
+    instanceId: instanceId.trim(),
+    appVersion: appVersion.trim() || undefined,
+  };
 }
