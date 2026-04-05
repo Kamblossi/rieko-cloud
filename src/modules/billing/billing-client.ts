@@ -1,26 +1,30 @@
-import { z } from "zod";
 import { env } from "../../config/env.js";
 import type { RuntimeCapabilityPayload } from "./billing-capabilities.service.js";
 
-const billingCapabilitiesSchema = z.object({
-  cloud_enabled: z.boolean(),
-  dev_space_enabled: z.boolean(),
-  byok_enabled: z.boolean(),
-  allowed_model_keys: z.array(z.string()),
-  monthly_generation_limit: z.number().int().nullable(),
-  trial_request_limit: z.number().int().nullable(),
-  device_limit: z.number().int(),
-});
+// Define the shape expected from the billing API
+export type BillingCapabilities = {
+  cloud_enabled: boolean;
+  allowed_model_keys: string[];
+  tier?: string | null;
+  plan_code?: string | null;
+};
 
-const billingValidateResponseSchema = z.object({
-  is_active: z.boolean(),
-  last_validated_at: z.string().nullable(),
-  is_dev_license: z.boolean(),
-  reason: z.string().optional(),
-  plan_code: z.string().nullable().optional(),
-  tier: z.string().nullable().optional(),
-  capabilities: billingCapabilitiesSchema.nullable().optional(),
-});
+export type ValidationContext = {
+  licenseKey: string;
+  machineId: string;
+  instanceName: string;
+  appVersion?: string;
+};
+
+type BillingValidateResponse = {
+  is_active?: boolean;
+  is_dev_license?: boolean;
+  last_validated_at?: string | null;
+  reason?: string;
+  plan_code?: string | null;
+  tier?: string | null;
+  capabilities?: RuntimeCapabilityPayload | null;
+};
 
 export type BillingValidateLicenseInput = {
   licenseKey?: string;
@@ -39,22 +43,53 @@ export type BillingValidateLicenseResult = {
   capabilities: RuntimeCapabilityPayload | null;
 };
 
-async function readJsonSafely(response: Response): Promise<unknown> {
-  const text = await response.text();
-
-  if (!text) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(text);
-  } catch {
-    return text;
-  }
-}
-
 export class BillingClient {
-  private readonly baseUrl = env.PRISM_BILLING_BASE_URL.replace(/\/+$/, "");
+  private baseUrl = env.PRISM_BILLING_BASE_URL.replace(/\/$/, "");
+
+  async validateCloudAccess(context: ValidationContext): Promise<BillingCapabilities> {
+    try {
+      const response = await fetch(`${this.baseUrl}/licenses/validate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${env.PRISM_BILLING_INTERNAL_TOKEN}`
+        },
+        body: JSON.stringify({
+          license_key: context.licenseKey,
+          machine_id: context.machineId,
+          instance_name: context.instanceName,
+          app_version: context.appVersion
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Billing API rejected request with status: ${response.status}`);
+      }
+
+      const data = (await response.json()) as BillingValidateResponse;
+
+      // 1. Check if the license is fundamentally active
+      if (!data.is_active) {
+        throw new Error(`License validation failed: ${data.reason || "Unknown reason"}`);
+      }
+
+      // 2. Check if the tier specifically allows cloud access (e.g., block 'basic' tier)
+      if (!data.capabilities?.cloud_enabled) {
+        throw new Error("CLOUD_NOT_ENABLED_FOR_PLAN");
+      }
+
+      return {
+        cloud_enabled: data.capabilities.cloud_enabled,
+        allowed_model_keys: data.capabilities.allowed_model_keys || [],
+        tier: data.tier,
+        plan_code: data.plan_code
+      };
+    } catch (error) {
+      // Log the actual network or parsing error internally, but throw a clean error up
+      console.error("[BillingClient] Validation error:", error);
+      throw error;
+    }
+  }
 
   async validateLicenseRuntime(
     input: BillingValidateLicenseInput,
@@ -62,42 +97,31 @@ export class BillingClient {
     const response = await fetch(`${this.baseUrl}/licenses/validate`, {
       method: "POST",
       headers: {
-        authorization: `Bearer ${env.PRISM_BILLING_INTERNAL_TOKEN}`,
-        "content-type": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${env.PRISM_BILLING_INTERNAL_TOKEN}`,
       },
       body: JSON.stringify({
         license_key: input.licenseKey?.trim() || "ADMIN-CHECK",
         machine_id: input.machineId,
         instance_name: input.instanceId,
-        ...(input.appVersion ? { app_version: input.appVersion } : {}),
+        app_version: input.appVersion,
       }),
     });
 
-    const payload = await readJsonSafely(response);
-
     if (!response.ok) {
-      const details =
-        typeof payload === "string"
-          ? payload
-          : payload
-            ? JSON.stringify(payload)
-            : "No response body";
-
-      throw new Error(
-        `Billing validation request failed (${response.status}): ${details}`,
-      );
+      throw new Error(`Billing API rejected request with status: ${response.status}`);
     }
 
-    const parsed = billingValidateResponseSchema.parse(payload);
+    const data = (await response.json()) as BillingValidateResponse;
 
     return {
-      isActive: parsed.is_active,
-      lastValidatedAt: parsed.last_validated_at,
-      isDevLicense: parsed.is_dev_license,
-      reason: parsed.reason,
-      planCode: parsed.plan_code ?? null,
-      tier: parsed.tier ?? null,
-      capabilities: parsed.capabilities ?? null,
+      isActive: data.is_active === true,
+      lastValidatedAt: data.last_validated_at ?? null,
+      isDevLicense: data.is_dev_license === true,
+      reason: data.reason,
+      planCode: data.plan_code ?? null,
+      tier: data.tier ?? null,
+      capabilities: data.capabilities ?? null,
     };
   }
 }
